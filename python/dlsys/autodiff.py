@@ -127,9 +127,9 @@ class Op(object):
         ----------
         node: node where the compute is done.
         input_shapes: shapes of input nodes.
-        tgt: target device where computation is done, e.g. "llvm", "cuda", "arm" 
+        tgt: target device where computation is done, e.g. "llvm", "cuda", "arm"
         tgt_host: target host where driver code is generated, e.g. "llvm"
-               
+
         Returns
         -------
         A python function that you can directly call on op inputs and output.
@@ -147,7 +147,7 @@ class AddOp(Op):
     def compute(self, node, input_vals, output_val, compiled_func):
         assert len(input_vals) == 2
         assert input_vals[0].shape == input_vals[1].shape
-        compiled_func(input_vals[0], input_vals[1], output_val)  
+        compiled_func(input_vals[0], input_vals[1], output_val)
 
     def gradient(self, node, output_grad):
         return [output_grad, output_grad]
@@ -171,7 +171,7 @@ class AddByConstOp(Op):
 
     def compute(self, node, input_vals, output_val, compiled_func):
         assert len(input_vals) == 1
-        compiled_func(input_vals[0], output_val)  
+        compiled_func(input_vals[0], output_val)
 
     def gradient(self, node, output_grad):
         return [output_grad]
@@ -192,7 +192,7 @@ class MulOp(Op):
     def compute(self, node, input_vals, output_val, compiled_func):
         assert len(input_vals) == 2
         assert input_vals[0].shape == input_vals[1].shape
-        compiled_func(input_vals[0], input_vals[1], output_val)  
+        compiled_func(input_vals[0], input_vals[1], output_val)
 
     def gradient(self, node, output_grad):
         return [node.inputs[1] * output_grad, node.inputs[0] * output_grad]
@@ -214,7 +214,7 @@ class MulByConstOp(Op):
 
     def compute(self, node, input_vals, output_val, compiled_func):
         assert len(input_vals) == 1
-        compiled_func(input_vals[0], output_val)  
+        compiled_func(input_vals[0], output_val)
 
     def gradient(self, node, output_grad):
         return [node.const_attr * output_grad]
@@ -274,7 +274,7 @@ class MatMulOp(Op):
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
-        
+
 
 class PlaceholderOp(Op):
     def __call__(self):
@@ -599,7 +599,7 @@ class Executor(object):
         node_to_val_map = {}
         for node, value in feed_dict.items():
             assert isinstance(value, tvm.ndarray.NDArray),\
-                "feed_dict value type not supported"    
+                "feed_dict value type not supported"
             node_to_val_map[node] = value
 
         # collect shapes for all placeholders
