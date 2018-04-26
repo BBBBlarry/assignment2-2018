@@ -178,9 +178,12 @@ class AddByConstOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_elemwise_add_by_const(
+            input_shapes[0], tgt, tgt_host, "elem_add_by_const")
 
 class MulOp(Op):
     def __call__(self, node_A, node_B):
@@ -200,9 +203,13 @@ class MulOp(Op):
     def infer_shape(self, node, input_shapes):
         """Need to handle input_vals[0].shape != input_vals[1].shape"""
         """TODO: Your code here"""
+        assert input_shapes[0] == input_shapes[1]
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_elemwise_mul(
+            input_shapes[0], tgt, tgt_host, "elemwise_mul")
 
 class MulByConstOp(Op):
     def __call__(self, node_A, const_val):
@@ -221,9 +228,12 @@ class MulByConstOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_elemwise_mul(
+            input_shapes[0], tgt, tgt_host, "elemwise_mul_by_const")
 
 class MatMulOp(Op):
     def __call__(self, node_A, node_B, trans_A=False, trans_B=False):
@@ -271,9 +281,16 @@ class MatMulOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        # shape must match
+        assert input_shapes[0][-1] == input_shapes[1][0]
+        return input_shapes[0][:-1] + input_shapes[1][1:]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_matrix_mul(
+            input_shapes[0], node.matmul_attr_trans_A,
+            input_shapes[1], node.matmul_attr_trans_A,
+            tgt, tgt_host,"matrix_mul")
 
 
 class PlaceholderOp(Op):

@@ -72,7 +72,7 @@ def test_matrix_multiply():
     arr_x = tvm.nd.array(x, ctx=ctx)
     arr_y = tvm.nd.array(y, ctx=ctx)
     arr_z = tvm.nd.array(z, ctx=ctx)
-   
+
     matrix_mul = tvm_op.make_matrix_mul(shapeX, False, shapeY, False, tgt, tgt_host, "matrix_mul")
     matrix_mul(arr_x, arr_y, arr_z)
     z = arr_z.asnumpy()
@@ -92,10 +92,10 @@ def test_matrix_multiply():
     matrix_mul(arr_x, arr_y, arr_z)
     z = arr_z.asnumpy()
     np.testing.assert_allclose(np.dot(x, np.transpose(y)), z, rtol=1e-5)
-    
+
     shapeX = (500, 1000)
     shapeY = (500, 2000)
-    shapeZ = (1000, 2000)   
+    shapeZ = (1000, 2000)
     x = np.random.uniform(0, 10, size=shapeX).astype(dtype)
     y = np.random.uniform(0, 10, size=shapeY).astype(dtype)
     z = np.zeros(shapeZ).astype(dtype)
@@ -107,10 +107,10 @@ def test_matrix_multiply():
     matrix_mul(arr_x, arr_y, arr_z)
     z = arr_z.asnumpy()
     np.testing.assert_allclose(np.dot(np.transpose(x), y), z, rtol=1e-5)
-    
+
     shapeX = (500, 1000)
     shapeY = (2000, 500)
-    shapeZ = (1000, 2000)   
+    shapeZ = (1000, 2000)
     x = np.random.uniform(0, 10, size=shapeX).astype(dtype)
     y = np.random.uniform(0, 10, size=shapeY).astype(dtype)
     z = np.zeros(shapeZ).astype(dtype)
@@ -177,10 +177,10 @@ def test_conv2d():
     arr_x = tvm.nd.array(x, ctx=ctx)
     arr_f = tvm.nd.array(f, ctx=ctx)
     arr_y = tvm.nd.array(y, ctx=ctx)
-   
+
     conv2d = tvm_op.make_conv2d(shapeX, shapeF, tgt, tgt_host, "conv2d")
     conv2d(arr_x, arr_f, arr_y)
-    y = arr_y.asnumpy()   
+    y = arr_y.asnumpy()
     np.testing.assert_allclose(np_conv2d(x, f), y, rtol=1e-5)
 
 
@@ -249,7 +249,7 @@ def test_reduce_sum_axis_zero():
 
     reduce_sum_axis_zero = tvm_op.make_reduce_sum_axis_zero(shape, tgt, tgt_host, "reduce_sum_axis_zero")
     reduce_sum_axis_zero(arr_x, arr_y)
-    
+
     y = arr_y.asnumpy()
     np.testing.assert_allclose(np.sum(x, axis=0), y, rtol=1e-5)
 
@@ -265,4 +265,3 @@ def test_broadcast_to():
     broadcast_to(arr_x, arr_y)
     y = arr_y.asnumpy()
     np.testing.assert_allclose(np.broadcast_to(x, to_shape), y)
-
