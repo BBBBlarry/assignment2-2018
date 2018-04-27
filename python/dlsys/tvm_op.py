@@ -89,7 +89,8 @@ def make_matrix_mul(shapeA, transposeA, shapeB, transposeB, tgt, tgt_host,
     """Hint: treat 4 cases of transposeA, transposeB separately"""
     """Hint: for tvm schedule, use split, reorder, vectorize, parallel"""
     """Hint: debug tvm schedule using tvm.lower"""
-    raise Exception("NOT DONE YET!!!")
+
+    #raise Exception("NOT DONE YET!!!")
     A = tvm.placeholder(shapeA, dtype=dtype, name="A")
     B = tvm.placeholder(shapeB, dtype=dtype, name="B")
 
@@ -111,7 +112,47 @@ def make_matrix_mul(shapeA, transposeA, shapeB, transposeB, tgt, tgt_host,
             lambda i, j: tvm.sum(A[k, i] * B[j, k], axis=k))
 
     s = tvm.create_schedule(C.op)
+
+    # optimizations
+    BLOCK_SIZE = 100
+    RED_AXIS_SPLIT = 4
+    xo, yo, xi, yi = s[C].tile(C.op.axis[0], C.op.axis[1], BLOCK_SIZE, BLOCK_SIZE)
+    ko, ki = s[C].split(k, factor=RED_AXIS_SPLIT)
+    # reorder access pattern to improve A's access pattern
+    s[C].reorder(xo, yo, ko, xi, ki, yi)
+    # uniform access, so vectorize
+    s[C].vectorize(yi)
+    # multithreading on blocks
+    s[C].parallel(xo)
+
+    '''
+    print(tvm.lower(s, [A,B,C], simple_mode=True))
+    i, j = s[C].op.axis
+    # remove the large stride on the access pattern of Matrix B
+    s[C].reorder(i, k, j)
+    # uniform access, so vectorize
+    s[C].vectorize(j)
+    '''
+    print(tvm.lower(s, [A,B,C], simple_mode=True))
+
+
     f = tvm.build(s, [A, B, C], tgt, target_host=tgt_host, name=func_name)
+
+    # eval
+    ctx = tvm.context(tgt, 0)
+    # data
+    shapeX = (500, 700)
+    shapeY = (700, 1000)
+    shapeZ = (500, 1000)
+    a = tvm.nd.array(np.random.rand(*shapeX).astype(dtype), ctx)
+    b = tvm.nd.array(np.random.rand(*shapeY).astype(dtype), ctx)
+    z = tvm.nd.array(np.zeros(shapeZ).astype(dtype), ctx)
+
+    # do it
+    evaluator = f.time_evaluator(f.entry_name, ctx, number=10)
+    print('Time: %f' % evaluator(a,b,z).mean)
+
+    raise Exception()
     return f
 
 def make_conv2d(shapeX, shapeF, tgt, tgt_host, func_name, dtype="float32"):
