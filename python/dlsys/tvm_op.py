@@ -125,20 +125,10 @@ def make_matrix_mul(shapeA, transposeA, shapeB, transposeB, tgt, tgt_host,
     # multithreading on blocks
     s[C].parallel(xo)
 
-    '''
-    print(tvm.lower(s, [A,B,C], simple_mode=True))
-    i, j = s[C].op.axis
-    # remove the large stride on the access pattern of Matrix B
-    s[C].reorder(i, k, j)
-    # uniform access, so vectorize
-    s[C].vectorize(j)
-    '''
-    print(tvm.lower(s, [A,B,C], simple_mode=True))
-
-
     f = tvm.build(s, [A, B, C], tgt, target_host=tgt_host, name=func_name)
 
-    # eval
+    '''
+    # evalulate time
     ctx = tvm.context(tgt, 0)
     # data
     shapeX = (500, 700)
@@ -153,7 +143,10 @@ def make_matrix_mul(shapeA, transposeA, shapeB, transposeB, tgt, tgt_host,
     print('Time: %f' % evaluator(a,b,z).mean)
 
     raise Exception()
+    '''
+
     return f
+
 
 def make_conv2d(shapeX, shapeF, tgt, tgt_host, func_name, dtype="float32"):
     assert(shapeX[1] == shapeF[1])
@@ -164,6 +157,8 @@ def make_conv2d(shapeX, shapeF, tgt, tgt_host, func_name, dtype="float32"):
     """Hint: use tvm.reduce_axis, tvm.sum"""
     """Hint: go by conv2d definition. Treat stride=1, padding=0 case only."""
     """For a challenge, treat the general case for stride and padding."""
+
+    
 
 def make_matrix_softmax(shape, tgt, tgt_host, func_name, dtype="float32"):
 
