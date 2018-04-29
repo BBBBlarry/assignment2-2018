@@ -130,8 +130,8 @@ def test_conv2d():
       N, C, H, W = X.shape
       assert (H + 2 * padding - filter_H) % stride == 0
       assert (W + 2 * padding - filter_W) % stride == 0
-      out_H = (H + 2 * padding - filter_H) / stride + 1
-      out_W = (W + 2 * padding - filter_W) / stride + 1
+      out_H = (H + 2 * padding - filter_H) // stride + 1
+      out_W = (W + 2 * padding - filter_W) // stride + 1
 
       y_row_size = C * filter_H * filter_W
       y_col_size = out_H * out_W
@@ -140,7 +140,7 @@ def test_conv2d():
 
       for batch_index in range(N):
         for col_index in range(y_col_size):
-          out_y = col_index / out_W
+          out_y = col_index // out_W
           out_x = col_index % out_W
           in_y = out_y * stride - padding
           in_x = out_x * stride - padding
@@ -166,13 +166,15 @@ def test_conv2d():
 
         im2col_matrix = im2col(X, filter_H, filter_W, padding, stride)
         filter_matrix = Filter.reshape(filter_outChannel, -1)
-        return np.matmul(filter_matrix, im2col_matrix).reshape(N, filter_outChannel, out_H, out_W)
+        return np.matmul(filter_matrix, im2col_matrix).reshape(int(N), int(filter_outChannel), int(out_H), int(out_W))
 
     shapeX = (100, 3, 28, 28)
     shapeF = (10, 3, 5, 5)
     shapeY = (100, 10, 24, 24)
     x = np.random.uniform(0, 10, size=shapeX).astype(dtype)
+    #print(x)
     f = np.random.uniform(0, 10, size=shapeF).astype(dtype)
+    #print(f)
     y = np.zeros(shapeY).astype(dtype)
     arr_x = tvm.nd.array(x, ctx=ctx)
     arr_f = tvm.nd.array(f, ctx=ctx)

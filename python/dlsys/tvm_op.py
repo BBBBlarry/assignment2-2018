@@ -158,7 +158,46 @@ def make_conv2d(shapeX, shapeF, tgt, tgt_host, func_name, dtype="float32"):
     """Hint: go by conv2d definition. Treat stride=1, padding=0 case only."""
     """For a challenge, treat the general case for stride and padding."""
 
-    
+    # stride = 1; padding = 0
+    shapeZ = (N, M, H - R + 1, W - S + 1)
+
+    X = tvm.placeholder(shapeX, dtype = dtype, name = "X")
+    F = tvm.placeholder(shapeF, dtype = dtype, name = "F")
+
+    rr = tvm.reduce_axis((0, R), name = "rh")
+    rs = tvm.reduce_axis((0, S), name = "rs")
+    rc = tvm.reduce_axis((0, C), name = "rc")
+
+    Z = tvm.compute(shapeZ, lambda n, m, i, j: tvm.sum(X[n, rc, i + rr, j + rs] * F[m, rc, rr, rs], axis = [rc, rr, rs]), name="Z")
+    s = tvm.create_schedule(Z.op)
+
+    #print(tvm.lower(s, [X, F, Z], simple_mode=True))
+    f = tvm.build(s, [X, F, Z], tgt, target_host=tgt_host, name=func_name)
+
+    '''
+    # evalulate time
+    ctx = tvm.context(tgt, 0)
+    # data
+    shapeX = (100, 3, 28, 28)
+    shapeF = (10, 3, 5, 5)
+    shapeY = (100, 10, 24, 24)
+
+    a = np.random.uniform(0, 10, size=shapeX).astype(dtype)
+    b = np.random.uniform(0, 10, size=shapeF).astype(dtype)
+    c = np.zeros(shapeY).astype(dtype)
+    arr_a = tvm.nd.array(a, ctx=ctx)
+    arr_b = tvm.nd.array(b, ctx=ctx)
+    arr_c = tvm.nd.array(c, ctx=ctx)
+
+    # do it
+    evaluator = f.time_evaluator(f.entry_name, ctx, number=100)
+    print('Time: %f' % evaluator(arr_a,arr_b,arr_c).mean)
+    raise Exception()
+    '''
+
+    return f
+
+
 
 def make_matrix_softmax(shape, tgt, tgt_host, func_name, dtype="float32"):
 
@@ -169,6 +208,26 @@ def make_matrix_softmax(shape, tgt, tgt_host, func_name, dtype="float32"):
         e_x = np.exp(x - np.max(x))
         softmax(x)= e_x / e_x.sum()
     """
+    raise Exception("NOT FINISHED")
+    X = tvm.placeholder(shape, dtype = dtype, name = "X")
+
+    rj = tvm.reduce_axis((0, shape[1]), name = "rj")
+    rej = tvm.reduce_axis((0, shape[1]), name = "rej")
+
+    m_X = tvm.compute((shape[0],), lambda i: tvm.max(X[i, rj], axis = rj), name = "m_X")
+    e_X = tvm.compute(shape, lambda i, j: tvm.exp(X[i, j] - m_X[i]), name = "e_X")
+    s_eX = tvm.compute((shape[0],), lambda i: tvm.sum(e_X[i, rej], axis = rej), name = "s_eX")
+    Z = tvm.compute(shape, lambda i, j: e_X[i, j] / s_eX[i], name = "Z")
+
+    s = tvm.create_schedule([Z.op])
+
+    print(tvm.lower(s, [X], simple_mode=True))
+    raise Exceptions()
+
+    f = tvm.build(s, [X], tgt, target_host=tgt_host, name=func_name)
+
+    return f
+
 
 def make_matrix_softmax_cross_entropy(shape, tgt, tgt_host, func_name,
                                       dtype="float32"):
