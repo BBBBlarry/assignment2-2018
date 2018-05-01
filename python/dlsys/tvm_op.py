@@ -208,7 +208,6 @@ def make_matrix_softmax(shape, tgt, tgt_host, func_name, dtype="float32"):
         e_x = np.exp(x - np.max(x))
         softmax(x)= e_x / e_x.sum()
     """
-    raise Exception("NOT FINISHED")
     X = tvm.placeholder(shape, dtype = dtype, name = "X")
 
     rj = tvm.reduce_axis((0, shape[1]), name = "rj")
@@ -220,11 +219,7 @@ def make_matrix_softmax(shape, tgt, tgt_host, func_name, dtype="float32"):
     Z = tvm.compute(shape, lambda i, j: e_X[i, j] / s_eX[i], name = "Z")
 
     s = tvm.create_schedule([Z.op])
-
-    print(tvm.lower(s, [X], simple_mode=True))
-    raise Exceptions()
-
-    f = tvm.build(s, [X], tgt, target_host=tgt_host, name=func_name)
+    f = tvm.build(s, [X, Z], tgt, target_host=tgt_host, name=func_name)
 
     return f
 
@@ -233,7 +228,34 @@ def make_matrix_softmax_cross_entropy(shape, tgt, tgt_host, func_name,
                                       dtype="float32"):
     """TODO: Your code here"""
     """Hint: output shape should be (1,)"""
+    X = tvm.placeholder(shape, dtype = dtype, name = "X")
+    T = tvm.placeholder(shape, dtype = dtype, name = "T")
 
+    # softmax
+    rj = tvm.reduce_axis((0, shape[1]), name = "rj")
+    rej = tvm.reduce_axis((0, shape[1]), name = "rej")
+
+    m_X = tvm.compute((shape[0],), lambda i: tvm.max(X[i, rj], axis = rj), name = "m_X")
+    e_X = tvm.compute(shape, lambda i, j: tvm.exp(X[i, j] - m_X[i]), name = "e_X")
+    s_eX = tvm.compute((shape[0],), lambda i: tvm.sum(e_X[i, rej], axis = rej), name = "s_eX")
+    y = tvm.compute(shape, lambda i, j: e_X[i, j] / s_eX[i], name = "y")
+
+    # the t * log(y) term
+    y_log= tvm.compute(shape, lambda i, j: T[i, j] * tvm.log(y[i, j]), name = "y_log")
+
+    ri_ce = tvm.reduce_axis((0, shape[0]), name = "ri")
+    rj_ce = tvm.reduce_axis((0, shape[1]), name = "rj")
+
+    scale = tvm.const(-shape[0], dtype)
+
+    # the result
+    Z_us = tvm.compute((1,), lambda i: tvm.sum(y_log[ri_ce, rj_ce], axis = [ri_ce, rj_ce]), name = "Z_us")
+    Z = tvm.compute((1,), lambda i: Z_us[i] / scale, name = "Z")
+
+
+    s = tvm.create_schedule([Z.op])
+    f = tvm.build(s, [X, T, Z], tgt, target_host=tgt_host, name=func_name)
+    return f
 
 def make_reduce_sum_axis_zero(shape, tgt, tgt_host, func_name, dtype="float32"):
     A = tvm.placeholder(shape, dtype=dtype, name="A")

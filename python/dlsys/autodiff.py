@@ -330,6 +330,7 @@ class ZerosLikeOp(Op):
     def infer_shape(self, node, input_shapes):
         """If input_shape is a vector, simpler to return (1,)"""
         """TODO: Your code here"""
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         return None
@@ -354,6 +355,7 @@ class OnesLikeOp(Op):
     def infer_shape(self, node, input_shapes):
         """If input_shape is a vector, simpler to return (1,)"""
         """TODO: Your code here"""
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         return None
@@ -412,6 +414,7 @@ class BroadcastToOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
