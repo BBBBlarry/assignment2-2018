@@ -282,8 +282,26 @@ class MatMulOp(Op):
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
         # shape must match
-        assert input_shapes[0][-1] == input_shapes[1][0]
-        return input_shapes[0][:-1] + input_shapes[1][1:]
+        if ((node.matmul_attr_trans_A is False) and
+                (node.matmul_attr_trans_B is False)):
+            assert input_shapes[0][1] == input_shapes[1][0]
+            return (input_shapes[0][0], input_shapes[1][1])
+
+        elif ((node.matmul_attr_trans_A is True) and
+                (node.matmul_attr_trans_B is False)):
+            assert input_shapes[0][0] == input_shapes[1][0]
+            return (input_shapes[0][1], input_shapes[1][1])
+
+        elif ((node.matmul_attr_trans_A is False) and
+                (node.matmul_attr_trans_B is True)):
+            assert input_shapes[0][1] == input_shapes[1][1]
+            return (input_shapes[0][0], input_shapes[1][0])
+
+        else:
+            ''' ((node.matmul_attr_trans_A is True) and
+                (node.matmul_attr_trans_B is True))'''
+            assert input_shapes[0][0] == input_shapes[1][1]
+            return (input_shapes[0][1], input_shapes[1][0])
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
@@ -414,10 +432,12 @@ class BroadcastToOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
-
+        return input_shapes[1]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_broadcast_to(
+            input_shapes[0], input_shapes[1], tgt, tgt_host, "broadcast_to")
 
 def softmax_func(y):
     """Numerically stable softmax."""
@@ -448,9 +468,12 @@ class SoftmaxCrossEntropyOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        return (1,)
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_matrix_softmax_cross_entropy(
+            input_shapes[0], tgt, tgt_host, "matrix_softmax_cross_entropy")
 
 class SoftmaxOp(Op):
     def __call__(self, node_A):
@@ -470,9 +493,12 @@ class SoftmaxOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_matrix_softmax(
+            input_shapes[0], tgt, tgt_host, "matrix_softmax")
 
 
 class ReluOp(Op):
@@ -490,9 +516,11 @@ class ReluOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_relu(input_shapes[0], tgt, tgt_host, "relu")
 
 
 class ReluGradientOp(Op):
@@ -511,9 +539,12 @@ class ReluGradientOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        return input_shapes[0]
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
+        return tvm_op.make_relu_gradient(
+            input_shapes[0], tgt, tgt_host, "relu_gradient")
 
 # Create global singletons of operators.
 add_op = AddOp()
@@ -571,6 +602,32 @@ class Executor(object):
         feed_shapes: node->shapes mapping for feed_dict nodes.
         """
         """TODO: Your code here"""
+
+        # initialize
+        self.node_to_shape_map = {}
+
+        # start with the feed_shapes
+        for node in feed_shapes:
+            self.node_to_shape_map[node] = feed_shapes[node]
+
+        for node in self.topo_order:
+            # already have the shape info needed
+            if node in self.node_to_shape_map:
+                continue
+
+            # get the shapes of the inputs
+            inputs = node.inputs
+            input_shapes = []
+            for input in inputs:
+                input_shapes += [self.node_to_shape_map[input]]
+
+            # now infer the node's shape
+            self.node_to_shape_map[node] = node.op.infer_shape(node, input_shapes)
+
+        for node in feed_shapes:
+            print(node)
+            print(self.node_to_shape_map[node])
+
 
     def memory_plan(self, feed_shapes):
         """Allocates tvm.nd.array for every node except feed_dict nodes.
