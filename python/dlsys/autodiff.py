@@ -232,8 +232,9 @@ class MulByConstOp(Op):
 
     def compiled_func(self, node, input_shapes, tgt, tgt_host):
         """TODO: Your code here"""
-        return tvm_op.make_elemwise_mul(
-            input_shapes[0], tgt, tgt_host, "elemwise_mul_by_const")
+        return tvm_op.make_elemwise_mul_by_const(
+            input_shapes[0], node.const_attr, tgt, tgt_host,
+            "elemwise_mul_by_const")
 
 class MatMulOp(Op):
     def __call__(self, node_A, node_B, trans_A=False, trans_B=False):
@@ -307,7 +308,7 @@ class MatMulOp(Op):
         """TODO: Your code here"""
         return tvm_op.make_matrix_mul(
             input_shapes[0], node.matmul_attr_trans_A,
-            input_shapes[1], node.matmul_attr_trans_A,
+            input_shapes[1], node.matmul_attr_trans_B,
             tgt, tgt_host,"matrix_mul")
 
 
@@ -624,9 +625,6 @@ class Executor(object):
             # now infer the node's shape
             self.node_to_shape_map[node] = node.op.infer_shape(node, input_shapes)
 
-        for node in feed_shapes:
-            print(node)
-            print(self.node_to_shape_map[node])
 
 
     def memory_plan(self, feed_shapes):
@@ -644,6 +642,20 @@ class Executor(object):
         """
         """TODO: Your code here"""
 
+        # initialize
+        self.node_to_arr_map = {}
+
+        for node in self.node_to_shape_map:
+            # no need to allocate memory for nodes in feed shape
+            if node in feed_shapes:
+                continue
+            # use the inferred shape
+            shape = self.node_to_shape_map[node]
+            # allocate empty memory
+            self.node_to_arr_map[node] = tvm.ndarray.empty(
+                shape, dtype='float32', ctx=self.ctx)
+
+
     def compile_funcs(self, feed_shapes):
         """Compile tvm ops to native code.
 
@@ -655,6 +667,27 @@ class Executor(object):
         feed_shapes: node->shapes mapping for feed_dict nodes.
         """
         """TODO: Your code here"""
+        # initialize
+        self.node_to_compiled_func = {}
+
+        for node in self.node_to_shape_map:
+            # no need to get complied fucntions for nodes in feed shape
+            if node in feed_shapes:
+                continue
+
+            # use the inferred shape
+            shape = self.node_to_shape_map[node]
+
+            # get the shapes of the inputs
+            inputs = node.inputs
+            input_shapes = []
+            for input in inputs:
+                input_shapes += [self.node_to_shape_map[input]]
+
+            # get the complied function
+            self.node_to_compiled_func[node] = node.op.compiled_func(
+                node, input_shapes, self.tgt, self.tgt_host)
+
 
     def run(self, feed_dict, convert_to_numpy_ret_vals=False):
         """
