@@ -90,60 +90,50 @@ def make_matrix_mul(shapeA, transposeA, shapeB, transposeB, tgt, tgt_host,
     """Hint: for tvm schedule, use split, reorder, vectorize, parallel"""
     """Hint: debug tvm schedule using tvm.lower"""
 
-    #raise Exception("NOT DONE YET!!!")
+    # raise Exception("Avoid blocking")
     A = tvm.placeholder(shapeA, dtype=dtype, name="A")
     B = tvm.placeholder(shapeB, dtype=dtype, name="B")
+
+    # optimization parameters
+    BLOCK_SIZE_I = 100
+    BLOCK_SIZE_J = 4
+    RED_AXIS_SPLIT = 8
 
     if not transposeA and not transposeB:
         k = tvm.reduce_axis((0, shapeA[1]), name='k')
         C = tvm.compute((shapeA[0], shapeB[1]),
             lambda i, j: tvm.sum(A[i, k] * B[k, j], axis=k))
+        s = tvm.create_schedule(C.op)
+
     elif not transposeA and transposeB:
         k = tvm.reduce_axis((0, shapeA[1]), name='k')
         C = tvm.compute((shapeA[0], shapeB[0]),
             lambda i, j: tvm.sum(A[i, k] * B[j, k], axis=k))
+        s = tvm.create_schedule(C.op)
+
     elif transposeA and not transposeB:
         k = tvm.reduce_axis((0, shapeA[0]), name='k')
         C = tvm.compute((shapeA[1], shapeB[1]),
             lambda i, j: tvm.sum(A[k, i] * B[k, j], axis=k))
+        s = tvm.create_schedule(C.op)
+
     else: # transposeA and transposeB
         k = tvm.reduce_axis((0, shapeA[0]), name='k')
         C = tvm.compute((shapeA[1], shapeB[0]),
             lambda i, j: tvm.sum(A[k, i] * B[j, k], axis=k))
-
-    s = tvm.create_schedule(C.op)
+        s = tvm.create_schedule(C.op)
 
     # optimizations
-    BLOCK_SIZE = 100
-    RED_AXIS_SPLIT = 4
-    xo, yo, xi, yi = s[C].tile(C.op.axis[0], C.op.axis[1], BLOCK_SIZE, BLOCK_SIZE)
+    xo, yo, xi, yi = s[C].tile(C.op.axis[0], C.op.axis[1], BLOCK_SIZE_I, BLOCK_SIZE_J)
     ko, ki = s[C].split(k, factor=RED_AXIS_SPLIT)
     # reorder access pattern to improve A's access pattern
-    s[C].reorder(xo, yo, ko, xi, ki, yi)
+    s[C].reorder(xo, ko, yo, xi, ki, yi)
     # uniform access, so vectorize
     s[C].vectorize(yi)
     # multithreading on blocks
     s[C].parallel(xo)
 
     f = tvm.build(s, [A, B, C], tgt, target_host=tgt_host, name=func_name)
-
-    '''
-    # evalulate time
-    ctx = tvm.context(tgt, 0)
-    # data
-    shapeX = (500, 700)
-    shapeY = (700, 1000)
-    shapeZ = (500, 1000)
-    a = tvm.nd.array(np.random.rand(*shapeX).astype(dtype), ctx)
-    b = tvm.nd.array(np.random.rand(*shapeY).astype(dtype), ctx)
-    z = tvm.nd.array(np.zeros(shapeZ).astype(dtype), ctx)
-
-    # do it
-    evaluator = f.time_evaluator(f.entry_name, ctx, number=10)
-    print('Time: %f' % evaluator(a,b,z).mean)
-
-    raise Exception()
-    '''
 
     return f
 
@@ -171,29 +161,7 @@ def make_conv2d(shapeX, shapeF, tgt, tgt_host, func_name, dtype="float32"):
     Z = tvm.compute(shapeZ, lambda n, m, i, j: tvm.sum(X[n, rc, i + rr, j + rs] * F[m, rc, rr, rs], axis = [rc, rr, rs]), name="Z")
     s = tvm.create_schedule(Z.op)
 
-    #print(tvm.lower(s, [X, F, Z], simple_mode=True))
     f = tvm.build(s, [X, F, Z], tgt, target_host=tgt_host, name=func_name)
-
-    '''
-    # evalulate time
-    ctx = tvm.context(tgt, 0)
-    # data
-    shapeX = (100, 3, 28, 28)
-    shapeF = (10, 3, 5, 5)
-    shapeY = (100, 10, 24, 24)
-
-    a = np.random.uniform(0, 10, size=shapeX).astype(dtype)
-    b = np.random.uniform(0, 10, size=shapeF).astype(dtype)
-    c = np.zeros(shapeY).astype(dtype)
-    arr_a = tvm.nd.array(a, ctx=ctx)
-    arr_b = tvm.nd.array(b, ctx=ctx)
-    arr_c = tvm.nd.array(c, ctx=ctx)
-
-    # do it
-    evaluator = f.time_evaluator(f.entry_name, ctx, number=100)
-    print('Time: %f' % evaluator(arr_a,arr_b,arr_c).mean)
-    raise Exception()
-    '''
 
     return f
 
@@ -222,7 +190,6 @@ def make_matrix_softmax(shape, tgt, tgt_host, func_name, dtype="float32"):
     f = tvm.build(s, [X, Z], tgt, target_host=tgt_host, name=func_name)
 
     return f
-
 
 def make_matrix_softmax_cross_entropy(shape, tgt, tgt_host, func_name,
                                       dtype="float32"):
